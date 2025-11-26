@@ -465,24 +465,178 @@ class StructureManager:
 
 ---
 
-## 10. 反向解析（選配）
+## 10. 反向解析
 
-如果需要從實際 path 反推 fields / kind，可以在「編譯階段」為每個 kind 建立一棵 pattern tree（trie）：
+從實際 path 反推 fields / kind，需要在「編譯階段」為每個 kind 建立 pattern tree（trie）：
 
-1. 將 template 拆成 segments：  
+1. 將 template 拆成 segments：
    例如：`"$root/$proj/ref/2d"` → `["$root", "$proj", "ref", "2d"]`
-2. literal segment（字串常數）直接作為 trie key；  
+2. literal segment（字串常數）直接作為 trie key；
    variable segment（`$root`, `$proj`）用特殊 slot，並記錄對應欄位名稱。
 3. 解析時將 path 拆 segment，沿 trie 走下去：
    - variable segment 收集對應欄位值
    - literal segment 必須完全相等
 4. 走到底的 node 可以對應到一個或多個 kinds → 做候選判定。
 
-這部分可以實作在 PathResolver 的進階 API，例如：
+### 10.1 歧義處理策略
 
-- `resolver.parse(kind, path) -> fields`
-- `resolver.guess_kinds(path) -> [(kind, fields?), ...]`
+**編譯時**：記錄歧義，不警告
+- 建立歧義映射表，記錄哪些 pattern 對應多個 kinds
+- 存入 compiled store 供 runtime 查詢
 
-不影響本文件描述的 forward resolve 設計。
+**Runtime**：使用時才警告
+- `parse(kind, path)`：已知 kind，直接解析，不受歧義影響
+- `guess(path)`：返回所有匹配的 `[(kind, fields), ...]`，若 >1 則發出警告
+- `guess_one(path, prefer=None)`：要求唯一結果，有歧義時拋出異常或使用偏好
+
+```python
+# 範例
+candidates = resolver.guess(Path("/proj/demo/tree.jpg"))
+# → [("asset_image", {...}), ("prop_image", {...})]
+# ⚠️  警告：Path matches multiple kinds: ['asset_image', 'prop_image']
+
+# 明確指定 kind
+fields = resolver.parse("asset_image", Path("/proj/demo/tree.jpg"))
+# → {"root": "/proj", "proj": "demo", "asset": "tree", "ext": "jpg"}
+```
+
+---
+
+## 11. 編譯產物存儲格式（最終定案）
+
+系統支援兩種存儲格式，可編譯時選擇：
+
+### 11.1 SQLite（默認，推薦）
+
+**特性**：
+- 單檔案：`compiled/schema.db`
+- 使用 `immutable=1` 模式打開（`file:path?immutable=1`）
+- 檔案權限設為只讀（chmod 444）
+- NFS 多進程並發讀取安全
+- 原生 lazy query，效能優秀
+
+**Schema**：
+```sql
+CREATE TABLE fields (
+    name TEXT PRIMARY KEY,
+    regex TEXT NOT NULL,
+    example TEXT
+);
+
+CREATE TABLE kinds (
+    name TEXT PRIMARY KEY,
+    template TEXT NOT NULL,
+    fields_json TEXT NOT NULL  -- JSON array: ["root", "proj", ...]
+);
+
+CREATE TABLE dirs (
+    name TEXT PRIMARY KEY,
+    template TEXT NOT NULL,
+    fields_json TEXT NOT NULL
+);
+
+CREATE TABLE ambiguities (
+    pattern TEXT PRIMARY KEY,
+    kind_names TEXT NOT NULL  -- JSON array: ["kind1", "kind2"]
+);
+
+CREATE INDEX idx_kinds_template ON kinds(template);
+```
+
+**使用方式**：
+```python
+import sqlite3
+
+conn = sqlite3.connect("file:compiled/schema.db?immutable=1", uri=True)
+conn.row_factory = sqlite3.Row
+
+row = conn.execute("SELECT template, fields_json FROM kinds WHERE name = ?", ("asset_image",)).fetchone()
+```
+
+---
+
+### 11.2 索引 MsgPack（零依賴）
+
+**特性**：
+- 單檔案：`compiled/schema.msgpack`
+- 檔案結構：Header（索引）+ Data（實際資料）
+- 使用 mmap 記憶體映射 + 偏移量定位
+- 零外部依賴（僅需 msgpack 庫）
+
+**檔案格式**：
+```
+[Byte 0-3]    Magic number: 0x504D5347 ("PMSG")
+[Byte 4-7]    Version: uint32
+[Byte 8-15]   Index offset: uint64
+[Byte 16-23]  Index size: uint64
+[Byte 24...]  Data blocks (各種 kind/dir/field 資料)
+[Index area]  索引區（檔案末尾）
+```
+
+**索引結構**（MsgPack 編碼）：
+```python
+{
+    "kinds": {
+        "asset_image": {"offset": 1024, "size": 256},
+        "asset_render": {"offset": 1280, "size": 312},
+        ...
+    },
+    "dirs": {
+        "proj_root": {"offset": 2048, "size": 128},
+        ...
+    },
+    "fields": {
+        "root": {"offset": 3072, "size": 64},
+        ...
+    },
+    "ambiguities": {
+        "$var/$var/$var.jpg": ["asset_image", "prop_image"]
+    }
+}
+```
+
+**使用方式**：
+```python
+import mmap
+import msgpack
+
+with open("compiled/schema.msgpack", "rb") as f:
+    mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+
+    # 讀取 header
+    magic = mm[0:4]
+    index_offset = int.from_bytes(mm[8:16], 'little')
+
+    # 讀取索引
+    mm.seek(index_offset)
+    index = msgpack.unpackb(mm.read(), raw=False)
+
+    # 讀取特定 kind
+    kind_info = index["kinds"]["asset_image"]
+    mm.seek(kind_info["offset"])
+    kind_data = msgpack.unpackb(mm.read(kind_info["size"]), raw=False)
+```
+
+---
+
+### 11.3 格式切換
+
+編譯時指定：
+```bash
+# SQLite
+python -m path_manager.compiler schema.yml --format sqlite --output compiled/schema.db
+
+# 索引 MsgPack
+python -m path_manager.compiler schema.yml --format msgpack --output compiled/schema.msgpack
+```
+
+Runtime 自動偵測：
+```python
+from path_manager import PathResolver
+
+# 自動根據副檔名選擇 Store
+resolver = PathResolver.from_file("compiled/schema.db")       # SQLiteStore
+resolver = PathResolver.from_file("compiled/schema.msgpack")  # MsgPackStore
+```
 
 ---

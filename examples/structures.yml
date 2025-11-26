@@ -1,0 +1,60 @@
+# Example structures.yml
+# Defines directory structures to be created
+
+structures:
+  project_basic:
+    node:
+      name: proj_root
+      directory: proj_root
+      meta:
+        ui_label: "Project Root"
+      children:
+        - name: ref
+          directory: proj_ref
+          meta:
+            ui_label: "References"
+          children:
+            - name: ref_2d
+              directory: proj_ref_2d
+              meta:
+                ui_icon: "image_2d"
+            - name: ref_3d
+              directory: proj_ref_3d
+              meta:
+                ui_icon: "cube_3d"
+
+        - name: client
+          directory: proj_client
+          meta:
+            ui_label: "Client"
+
+        - name: work
+          directory: proj_work
+          meta:
+            ui_label: "Work"
+
+  asset_complete:
+    node:
+      name: asset_root
+      directory: asset_root
+      meta:
+        ui_label: "Asset Root"
+      children:
+        - name: model
+          directory: asset_model
+          meta:
+            ui_label: "Model"
+
+        - name: render
+          directory: asset_render
+          meta:
+            ui_label: "Render"
+          children:
+            - name: render_jpg
+              directory: asset_render_jpg
+              meta:
+                ui_label: "JPG Renders"
+            - name: render_exr
+              directory: asset_render_exr
+              meta:
+                ui_label: "EXR Renders"
