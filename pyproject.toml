@@ -17,6 +17,12 @@ dependencies = [
 dev = [
     "pytest>=7.0.0",
 ]
+gui = [
+    "PySide6>=6.0.0",
+]
+
+[project.scripts]
+path-schema-editor = "path_manager.schema_editor.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
