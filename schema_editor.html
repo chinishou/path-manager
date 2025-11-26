@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Path Manager Schema Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .toolbar {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 5px;
+            background: white;
+            padding: 10px 20px 0;
+            border-radius: 8px 8px 0 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .tab {
+            padding: 12px 24px;
+            border: none;
+            background: transparent;
+            color: #666;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 6px 6px 0 0;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            background: #f3f4f6;
+        }
+
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .content {
+            background: white;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            min-height: 500px;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #1f2937;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th {
+            background: #f9fafb;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn-icon {
+            padding: 8px 12px;
+            font-size: 16px;
+            min-width: auto;
+        }
+
+        .tree {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .tree-node {
+            margin: 8px 0;
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+        }
+
+        .tree-node-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .tree-node-fields {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .tree-node-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.active {
+            display: block;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .code-preview {
+            background: #1f2937;
+            color: #f3f4f6;
+            padding: 20px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #9ca3af;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            background: #e0e7ff;
+            color: #4338ca;
+        }
+
+        #yaml-import {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Path Manager Schema Editor</h1>
+        <p>視覺化編輯 schema.yml - 定義路徑結構、欄位和種類</p>
+    </div>
+
+    <div class="container">
+        <div class="toolbar">
+            <button class="btn btn-secondary" onclick="importYAML()">
+                📁 導入 YAML
+            </button>
+            <input type="file" id="yaml-import" accept=".yml,.yaml" onchange="handleFileImport(event)">
+            <button class="btn btn-success" onclick="exportYAML()">
+                💾 導出 YAML
+            </button>
+            <button class="btn btn-secondary" onclick="loadExample()">
+                📋 載入範例
+            </button>
+            <button class="btn btn-danger" onclick="clearSchema()">
+                🗑️ 清空
+            </button>
+            <div style="flex-grow: 1"></div>
+            <button class="btn btn-primary" onclick="validateSchema()">
+                ✓ 驗證
+            </button>
+        </div>
+
+        <div class="alert alert-success" id="success-alert"></div>
+        <div class="alert alert-error" id="error-alert"></div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="fields" onclick="switchTab('fields')">欄位 (Fields)</button>
+            <button class="tab" data-tab="directories" onclick="switchTab('directories')">目錄結構 (Directories)</button>
+            <button class="tab" data-tab="filenames" onclick="switchTab('filenames')">檔名模板 (Filenames)</button>
+            <button class="tab" data-tab="kinds" onclick="switchTab('kinds')">種類 (Kinds)</button>
+        </div>
+
+        <div class="content">
+            <!-- Fields Tab -->
+            <div class="tab-panel active" id="fields-panel">
+                <h2 class="section-title">欄位定義</h2>
+                <p style="margin-bottom: 20px; color: #6b7280;">定義可在路徑中使用的變數欄位，包含驗證用的正則表達式和示例值。</p>
+
+                <table id="fields-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 20%">名稱</th>
+                            <th style="width: 35%">正則表達式</th>
+                            <th style="width: 25%">示例</th>
+                            <th style="width: 20%">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fields-tbody">
+                    </tbody>
+                </table>
+                <button class="btn btn-primary" onclick="addField()">+ 新增欄位</button>
+            </div>
+
+            <!-- Directories Tab -->
+            <div class="tab-panel" id="directories-panel">
+                <h2 class="section-title">目錄結構</h2>
+                <p style="margin-bottom: 20px; color: #6b7280;">定義階層式的目錄結構，使用 $變數 引用欄位。</p>
+
+                <div id="directories-tree"></div>
+                <button class="btn btn-primary" onclick="showAddRootDialog()">+ 設定根目錄</button>
+            </div>
+
+            <!-- Filenames Tab -->
+            <div class="tab-panel" id="filenames-panel">
+                <h2 class="section-title">檔名模板</h2>
+                <p style="margin-bottom: 20px; color: #6b7280;">定義檔案名稱的模板，可使用 $變數 語法。</p>
+
+                <table id="filenames-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 30%">名稱</th>
+                            <th style="width: 50%">模板</th>
+                            <th style="width: 20%">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="filenames-tbody">
+                    </tbody>
+                </table>
+                <button class="btn btn-primary" onclick="addFilename()">+ 新增檔名模板</button>
+            </div>
+
+            <!-- Kinds Tab -->
+            <div class="tab-panel" id="kinds-panel">
+                <h2 class="section-title">種類定義</h2>
+                <p style="margin-bottom: 20px; color: #6b7280;">組合目錄和檔名模板，定義完整的路徑種類。</p>
+
+                <table id="kinds-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 30%">名稱</th>
+                            <th style="width: 30%">目錄</th>
+                            <th style="width: 30%">檔名</th>
+                            <th style="width: 10%">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kinds-tbody">
+                    </tbody>
+                </table>
+                <button class="btn btn-primary" onclick="addKind()">+ 新增種類</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Directory Modal -->
+    <div class="modal" id="directory-modal">
+        <div class="modal-content">
+            <div class="modal-header">編輯目錄節點</div>
+            <div class="form-group">
+                <label class="form-label">名稱</label>
+                <input type="text" id="dir-name" placeholder="例如: proj_root">
+            </div>
+            <div class="form-group">
+                <label class="form-label">路徑片段</label>
+                <input type="text" id="dir-segment" placeholder="例如: $proj 或 asset">
+                <small style="color: #6b7280; display: block; margin-top: 5px;">使用 $變數名 引用欄位，或輸入固定字串</small>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDirectoryModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveDirectory()">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <script>
+        // Schema data structure
+        let schema = {
+            fields: {},
+            directories: null,
+            filenames: {},
+            kinds: {}
+        };
+
+        let editingDirPath = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadExample();
+        });
+
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            document.getElementById(`${tabName}-panel`).classList.add('active');
+        }
+
+        // Fields management
+        function addField() {
+            const name = prompt('欄位名稱:');
+            if (!name) return;
+
+            if (schema.fields[name]) {
+                showError('欄位名稱已存在');
+                return;
+            }
+
+            schema.fields[name] = {
+                regex: '[A-Za-z0-9_]+',
+                example: 'example'
+            };
+            renderFields();
+        }
+
+        function deleteField(name) {
+            if (!confirm(`確定要刪除欄位 "${name}"？`)) return;
+            delete schema.fields[name];
+            renderFields();
+        }
+
+        function updateField(name, property, value) {
+            if (schema.fields[name]) {
+                schema.fields[name][property] = value;
+            }
+        }
+
+        function renderFields() {
+            const tbody = document.getElementById('fields-tbody');
+            tbody.innerHTML = '';
+
+            if (Object.keys(schema.fields).length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><div class="empty-state-icon">📝</div>尚未定義欄位</td></tr>';
+                return;
+            }
+
+            for (const [name, field] of Object.entries(schema.fields)) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${name}</strong></td>
+                    <td><input type="text" value="${field.regex}" onchange="updateField('${name}', 'regex', this.value)"></td>
+                    <td><input type="text" value="${field.example}" onchange="updateField('${name}', 'example', this.value)"></td>
+                    <td>
+                        <button class="btn btn-danger btn-icon" onclick="deleteField('${name}')">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            }
+        }
+
+        // Directories management
+        function showAddRootDialog() {
+            editingDirPath = [];
+            document.getElementById('dir-name').value = 'root';
+            document.getElementById('dir-segment').value = '$root';
+            document.getElementById('directory-modal').classList.add('active');
+        }
+
+        function editDirectory(path) {
+            editingDirPath = path;
+            const node = getNodeByPath(schema.directories, path);
+            if (node) {
+                document.getElementById('dir-name').value = node.name;
+                document.getElementById('dir-segment').value = node.segment;
+                document.getElementById('directory-modal').classList.add('active');
+            }
+        }
+
+        function addChildDirectory(parentPath) {
+            editingDirPath = [...parentPath, -1]; // -1 indicates new child
+            document.getElementById('dir-name').value = '';
+            document.getElementById('dir-segment').value = '';
+            document.getElementById('directory-modal').classList.add('active');
+        }
+
+        function saveDirectory() {
+            const name = document.getElementById('dir-name').value.trim();
+            const segment = document.getElementById('dir-segment').value.trim();
+
+            if (!name || !segment) {
+                showError('名稱和路徑片段不能為空');
+                return;
+            }
+
+            const newNode = { name, segment, children: [] };
+
+            if (editingDirPath.length === 0) {
+                // Setting root
+                schema.directories = newNode;
+            } else if (editingDirPath[editingDirPath.length - 1] === -1) {
+                // Adding new child
+                const parentPath = editingDirPath.slice(0, -1);
+                const parent = getNodeByPath(schema.directories, parentPath);
+                if (parent) {
+                    if (!parent.children) parent.children = [];
+                    parent.children.push(newNode);
+                }
+            } else {
+                // Editing existing node
+                const node = getNodeByPath(schema.directories, editingDirPath);
+                if (node) {
+                    node.name = name;
+                    node.segment = segment;
+                }
+            }
+
+            closeDirectoryModal();
+            renderDirectories();
+        }
+
+        function deleteDirectory(path) {
+            if (!confirm('確定要刪除此目錄節點及其子節點？')) return;
+
+            if (path.length === 0) {
+                schema.directories = null;
+            } else {
+                const parentPath = path.slice(0, -1);
+                const childIndex = path[path.length - 1];
+                const parent = getNodeByPath(schema.directories, parentPath);
+                if (parent && parent.children) {
+                    parent.children.splice(childIndex, 1);
+                }
+            }
+
+            renderDirectories();
+        }
+
+        function closeDirectoryModal() {
+            document.getElementById('directory-modal').classList.remove('active');
+        }
+
+        function getNodeByPath(root, path) {
+            if (!root || path.length === 0) return root;
+
+            let node = root;
+            for (const index of path) {
+                if (index === -1) return node; // Parent for new child
+                if (!node.children || !node.children[index]) return null;
+                node = node.children[index];
+            }
+            return node;
+        }
+
+        function renderDirectories() {
+            const container = document.getElementById('directories-tree');
+
+            if (!schema.directories) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📁</div>尚未定義目錄結構</div>';
+                return;
+            }
+
+            container.innerHTML = renderDirectoryNode(schema.directories, []);
+        }
+
+        function renderDirectoryNode(node, path) {
+            const pathStr = JSON.stringify(path).replace(/"/g, '&quot;');
+
+            let html = '<div class="tree-node">';
+            html += '<div class="tree-node-header">';
+            html += `<strong>📁 ${node.name}</strong>`;
+            html += `<span class="badge">${node.segment}</span>`;
+            html += '</div>';
+            html += '<div class="tree-node-actions">';
+            html += `<button class="btn btn-secondary btn-icon" onclick='editDirectory(${pathStr})'>✏️</button>`;
+            html += `<button class="btn btn-primary btn-icon" onclick='addChildDirectory(${pathStr})'>➕</button>`;
+            html += `<button class="btn btn-danger btn-icon" onclick='deleteDirectory(${pathStr})'>🗑️</button>`;
+            html += '</div>';
+
+            if (node.children && node.children.length > 0) {
+                html += '<div class="tree">';
+                node.children.forEach((child, index) => {
+                    html += renderDirectoryNode(child, [...path, index]);
+                });
+                html += '</div>';
+            }
+
+            html += '</div>';
+            return html;
+        }
+
+        // Filenames management
+        function addFilename() {
+            const name = prompt('檔名模板名稱:');
+            if (!name) return;
+
+            if (schema.filenames[name]) {
+                showError('檔名模板名稱已存在');
+                return;
+            }
+
+            schema.filenames[name] = {
+                template: '$name.$ext'
+            };
+            renderFilenames();
+        }
+
+        function deleteFilename(name) {
+            if (!confirm(`確定要刪除檔名模板 "${name}"？`)) return;
+            delete schema.filenames[name];
+            renderFilenames();
+        }
+
+        function updateFilename(name, value) {
+            if (schema.filenames[name]) {
+                schema.filenames[name].template = value;
+            }
+        }
+
+        function renderFilenames() {
+            const tbody = document.getElementById('filenames-tbody');
+            tbody.innerHTML = '';
+
+            if (Object.keys(schema.filenames).length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="empty-state"><div class="empty-state-icon">📄</div>尚未定義檔名模板</td></tr>';
+                return;
+            }
+
+            for (const [name, spec] of Object.entries(schema.filenames)) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${name}</strong></td>
+                    <td><input type="text" value="${spec.template}" onchange="updateFilename('${name}', this.value)"></td>
+                    <td>
+                        <button class="btn btn-danger btn-icon" onclick="deleteFilename('${name}')">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            }
+        }
+
+        // Kinds management
+        function addKind() {
+            const name = prompt('種類名稱:');
+            if (!name) return;
+
+            if (schema.kinds[name]) {
+                showError('種類名稱已存在');
+                return;
+            }
+
+            schema.kinds[name] = {
+                directory: '',
+                filename: ''
+            };
+            renderKinds();
+        }
+
+        function deleteKind(name) {
+            if (!confirm(`確定要刪除種類 "${name}"？`)) return;
+            delete schema.kinds[name];
+            renderKinds();
+        }
+
+        function updateKind(name, property, value) {
+            if (schema.kinds[name]) {
+                schema.kinds[name][property] = value;
+            }
+        }
+
+        function renderKinds() {
+            const tbody = document.getElementById('kinds-tbody');
+            tbody.innerHTML = '';
+
+            if (Object.keys(schema.kinds).length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><div class="empty-state-icon">🎯</div>尚未定義種類</td></tr>';
+                return;
+            }
+
+            const dirNames = getAllDirectoryNames(schema.directories);
+            const filenameNames = Object.keys(schema.filenames);
+
+            for (const [name, kind] of Object.entries(schema.kinds)) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${name}</strong></td>
+                    <td>
+                        <select onchange="updateKind('${name}', 'directory', this.value)">
+                            <option value="">-- 選擇目錄 --</option>
+                            ${dirNames.map(dir => `<option value="${dir}" ${kind.directory === dir ? 'selected' : ''}>${dir}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td>
+                        <select onchange="updateKind('${name}', 'filename', this.value)">
+                            <option value="">-- 選擇檔名 --</option>
+                            ${filenameNames.map(fn => `<option value="${fn}" ${kind.filename === fn ? 'selected' : ''}>${fn}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td>
+                        <button class="btn btn-danger btn-icon" onclick="deleteKind('${name}')">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            }
+        }
+
+        function getAllDirectoryNames(node, names = []) {
+            if (!node) return names;
+            names.push(node.name);
+            if (node.children) {
+                node.children.forEach(child => getAllDirectoryNames(child, names));
+            }
+            return names;
+        }
+
+        // Import/Export
+        function importYAML() {
+            document.getElementById('yaml-import').click();
+        }
+
+        function handleFileImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    schema = jsyaml.load(e.target.result);
+                    renderAll();
+                    showSuccess('YAML 導入成功');
+                } catch (error) {
+                    showError('YAML 解析失敗: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function exportYAML() {
+            try {
+                const yaml = jsyaml.dump(schema, { indent: 2 });
+                const blob = new Blob([yaml], { type: 'text/yaml' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'schema.yml';
+                a.click();
+                URL.revokeObjectURL(url);
+                showSuccess('YAML 導出成功');
+            } catch (error) {
+                showError('YAML 導出失敗: ' + error.message);
+            }
+        }
+
+        function loadExample() {
+            schema = {
+                fields: {
+                    root: { regex: '/[A-Za-z0-9/_-]+', example: '/proj' },
+                    proj: { regex: '[A-Za-z0-9_]+', example: 'demo_proj' },
+                    asset: { regex: '[A-Za-z0-9_]+', example: 'tree' },
+                    ver: { regex: '[0-9]{3}', example: '003' },
+                    ext: { regex: '[a-z0-9]+', example: 'jpg' }
+                },
+                directories: {
+                    name: 'root',
+                    segment: '$root',
+                    children: [
+                        {
+                            name: 'proj_root',
+                            segment: '$proj',
+                            children: [
+                                {
+                                    name: 'assets_root',
+                                    segment: 'asset',
+                                    children: [
+                                        {
+                                            name: 'asset_root',
+                                            segment: '$asset',
+                                            children: [
+                                                {
+                                                    name: 'asset_render',
+                                                    segment: 'render',
+                                                    children: [
+                                                        { name: 'asset_render_jpg', segment: 'jpg', children: [] }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                filenames: {
+                    asset_render_versioned: { template: '$asset.v$ver.$ext' }
+                },
+                kinds: {
+                    asset_render_image_versioned: {
+                        directory: 'asset_render_jpg',
+                        filename: 'asset_render_versioned'
+                    }
+                }
+            };
+            renderAll();
+            showSuccess('範例已載入');
+        }
+
+        function clearSchema() {
+            if (!confirm('確定要清空所有資料？')) return;
+
+            schema = {
+                fields: {},
+                directories: null,
+                filenames: {},
+                kinds: {}
+            };
+            renderAll();
+            showSuccess('已清空');
+        }
+
+        function validateSchema() {
+            const errors = [];
+
+            // Validate fields
+            if (Object.keys(schema.fields).length === 0) {
+                errors.push('至少需要定義一個欄位');
+            }
+
+            // Validate directories
+            if (!schema.directories) {
+                errors.push('需要定義目錄結構');
+            }
+
+            // Validate kinds
+            for (const [name, kind] of Object.entries(schema.kinds)) {
+                if (!kind.directory) {
+                    errors.push(`種類 "${name}" 未指定目錄`);
+                }
+                if (!kind.filename) {
+                    errors.push(`種類 "${name}" 未指定檔名`);
+                }
+            }
+
+            if (errors.length > 0) {
+                showError(errors.join('<br>'));
+            } else {
+                showSuccess('✓ Schema 驗證通過');
+            }
+        }
+
+        function renderAll() {
+            renderFields();
+            renderDirectories();
+            renderFilenames();
+            renderKinds();
+        }
+
+        function showSuccess(message) {
+            const alert = document.getElementById('success-alert');
+            alert.textContent = message;
+            alert.classList.add('active');
+            setTimeout(() => alert.classList.remove('active'), 3000);
+        }
+
+        function showError(message) {
+            const alert = document.getElementById('error-alert');
+            alert.innerHTML = message;
+            alert.classList.add('active');
+            setTimeout(() => alert.classList.remove('active'), 5000);
+        }
+    </script>
+</body>
+</html>
