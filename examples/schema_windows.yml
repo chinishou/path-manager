@@ -1,0 +1,96 @@
+# Windows schema.yml
+# Defines fields, directories, filenames, and kinds for Windows systems
+
+fields:
+  root:
+    regex: "[A-Za-z]:/[A-Za-z0-9/_-]+"
+    example: "C:/proj"
+
+  proj:
+    regex: "[A-Za-z0-9_]+"
+    example: "demo_proj"
+
+  asset:
+    regex: "[A-Za-z0-9_]+"
+    example: "tree"
+
+  seq:
+    regex: "[A-Z0-9]{3}"
+    example: "S01"
+
+  shot:
+    regex: "[0-9]{4}"
+    example: "0010"
+
+  ver:
+    regex: "[0-9]{3}"
+    example: "003"
+
+  ext:
+    regex: "[a-z0-9]+"
+    example: "jpg"
+
+directories:
+  name: root
+  segment: "$root"
+  children:
+    - name: proj_root
+      segment: "$proj"
+      children:
+        - name: proj_ref
+          segment: "ref"
+          children:
+            - name: proj_ref_2d
+              segment: "2d"
+            - name: proj_ref_3d
+              segment: "3d"
+
+        - name: proj_client
+          segment: "client"
+
+        - name: proj_work
+          segment: "work"
+
+        - name: assets_root
+          segment: "asset"
+          children:
+            - name: asset_root
+              segment: "$asset"
+              children:
+                - name: asset_model
+                  segment: "model"
+
+                - name: asset_render
+                  segment: "render"
+                  children:
+                    - name: asset_render_jpg
+                      segment: "jpg"
+                    - name: asset_render_exr
+                      segment: "exr"
+
+filenames:
+  asset_render:
+    template: "$asset.$ext"
+
+  asset_render_versioned:
+    template: "$asset.v$ver.$ext"
+
+  asset_model_file:
+    template: "$asset.v$ver.ma"
+
+kinds:
+  asset_render_image:
+    directory: asset_render_jpg
+    filename: asset_render
+
+  asset_render_image_versioned:
+    directory: asset_render_jpg
+    filename: asset_render_versioned
+
+  asset_render_exr_versioned:
+    directory: asset_render_exr
+    filename: asset_render_versioned
+
+  asset_model_maya:
+    directory: asset_model
+    filename: asset_model_file
