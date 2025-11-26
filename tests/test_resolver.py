@@ -20,6 +20,18 @@ def schema_file():
 
 
 @pytest.fixture
+def schema_linux():
+    """Provide path to Linux-specific schema.yml"""
+    return Path(__file__).parent.parent / "examples" / "schema_linux.yml"
+
+
+@pytest.fixture
+def schema_windows():
+    """Provide path to Windows-specific schema.yml"""
+    return Path(__file__).parent.parent / "examples" / "schema_windows.yml"
+
+
+@pytest.fixture
 def compiled_sqlite(schema_file, tmp_path):
     """Provide compiled SQLite database."""
     db_path = tmp_path / "schema.db"
@@ -47,6 +59,41 @@ def resolver(request, compiled_sqlite, compiled_msgpack):
     res.close()
 
 
+@pytest.fixture(params=[
+    ("linux", "sqlite"),
+    ("linux", "msgpack"),
+    ("windows", "sqlite"),
+    ("windows", "msgpack")
+])
+def resolver_platform(request, schema_linux, schema_windows, tmp_path):
+    """Provide platform-specific resolver with both storage backends."""
+    platform, storage = request.param
+
+    if platform == "linux":
+        schema = schema_linux
+        root_example = "/proj"
+    else:
+        schema = schema_windows
+        root_example = "C:/proj"
+
+    if storage == "sqlite":
+        db_path = tmp_path / f"schema_{platform}.db"
+        compile_schema(schema, db_path, format="sqlite")
+        res = PathResolver.from_file(db_path)
+    else:
+        msgpack_path = tmp_path / f"schema_{platform}.msgpack"
+        compile_schema(schema, msgpack_path, format="msgpack")
+        res = PathResolver.from_file(msgpack_path)
+
+    yield {
+        "resolver": res,
+        "platform": platform,
+        "storage": storage,
+        "root_example": root_example
+    }
+    res.close()
+
+
 class TestPathResolverForward:
     """Test forward path resolution (kind + fields -> path)."""
 
@@ -61,7 +108,7 @@ class TestPathResolverForward:
             ext="jpg"
         )
 
-        assert str(path) == "/proj/demo/asset/tree/render/jpg/tree.v003.jpg"
+        assert path.as_posix() == "/proj/demo/asset/tree/render/jpg/tree.v003.jpg"
 
     def test_resolve_directory(self, resolver):
         """Test resolving directory path."""
@@ -71,7 +118,7 @@ class TestPathResolverForward:
             proj="demo"
         )
 
-        assert str(path) == "/proj/demo"
+        assert path.as_posix() == "/proj/demo"
 
     def test_resolve_with_callable(self, resolver):
         """Test using callable syntax."""
@@ -85,7 +132,7 @@ class TestPathResolverForward:
         )
 
         assert isinstance(resolved, ResolvedPath)
-        assert str(resolved.get_path()) == "/proj/demo/asset/tree/render/jpg/tree.v003.jpg"
+        assert str(resolved) == "/proj/demo/asset/tree/render/jpg/tree.v003.jpg"
 
     def test_missing_field(self, resolver):
         """Test error when required field is missing."""
@@ -152,7 +199,7 @@ class TestResolvedPath:
         """Test exists() method."""
         resolved = resolver(
             "proj_root",
-            root=str(tmp_path),
+            root=tmp_path.as_posix(),
             proj="test"
         )
 
@@ -262,7 +309,82 @@ class TestContextManager:
                 root="/proj",
                 proj="demo"
             )
-            assert str(path) == "/proj/demo"
+            assert path.as_posix() == "/proj/demo"
 
         # Should be closed after context
         # (Can't test this easily without checking internal state)
+
+
+class TestPlatformSpecificResolvers:
+    """Test platform-specific path resolution (Linux and Windows)."""
+
+    def test_resolve_platform_path(self, resolver_platform):
+        """Test resolving path with platform-specific root."""
+        res = resolver_platform["resolver"]
+        root = resolver_platform["root_example"]
+
+        path = res.get_path(
+            "asset_render_image_versioned",
+            root=root,
+            proj="demo",
+            asset="tree",
+            ver="003",
+            ext="jpg"
+        )
+
+        # Path should be generated correctly for platform
+        expected = f"{root}/demo/asset/tree/render/jpg/tree.v003.jpg"
+        assert path.as_posix() == expected
+
+    def test_parse_platform_path(self, resolver_platform):
+        """Test parsing path with platform-specific root."""
+        res = resolver_platform["resolver"]
+        root = resolver_platform["root_example"]
+
+        path = f"{root}/demo/asset/tree/render/jpg/tree.v003.jpg"
+        fields = res.parse("asset_render_image_versioned", path)
+
+        assert fields["root"] == root
+        assert fields["proj"] == "demo"
+        assert fields["asset"] == "tree"
+        assert fields["ver"] == "003"
+        assert fields["ext"] == "jpg"
+
+    def test_platform_root_validation(self, resolver_platform, tmp_path):
+        """Test that platform schema validates root paths correctly."""
+        res = resolver_platform["resolver"]
+        platform = resolver_platform["platform"]
+
+        if platform == "linux":
+            # Linux schema should accept Unix paths
+            valid_root = "/proj"
+            invalid_root = "C:/proj"
+        else:
+            # Windows schema should accept Windows paths
+            valid_root = "C:/proj"
+            invalid_root = "/proj"
+
+        # Valid root should work
+        path = res.get_path("proj_root", root=valid_root, proj="demo")
+        assert path.as_posix() == f"{valid_root}/demo"
+
+        # Invalid root should fail validation
+        with pytest.raises(ValidationError, match="doesn't match regex"):
+            res.get_path("proj_root", root=invalid_root, proj="demo")
+
+    def test_platform_with_tmp_path(self, resolver_platform, tmp_path):
+        """Test creating directories with platform-appropriate paths."""
+        res = resolver_platform["resolver"]
+        platform = resolver_platform["platform"]
+        root = resolver_platform["root_example"]
+
+        # Create directory structure with platform-appropriate root
+        resolved = res(
+            "proj_root",
+            root=root,
+            proj="test_proj"
+        )
+
+        # Verify path generation works
+        expected = f"{root}/test_proj"
+        assert resolved.get_path_str() == expected

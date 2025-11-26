@@ -1,6 +1,7 @@
 """
 SQLite-based compiled schema storage.
 """
+from __future__ import annotations
 
 import json
 import sqlite3

@@ -1,6 +1,7 @@
 """
 Indexed MsgPack-based compiled schema storage.
 """
+from __future__ import annotations
 
 import mmap
 from pathlib import Path

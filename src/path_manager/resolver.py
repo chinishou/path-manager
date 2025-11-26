@@ -1,6 +1,7 @@
 """
 PathResolver - Dynamic path generation and parsing.
 """
+from __future__ import annotations
 
 import re
 import warnings
@@ -60,6 +61,10 @@ class ResolvedPath:
             self._path_cache = Path(s)
         return self._path_cache
 
+    def get_path_str(self) -> str:
+        """Get the resolved path as POSIX string."""
+        return self.get_path().as_posix()
+
     def get_template(self) -> str:
         """Get the original template string."""
         return self._spec.template
@@ -92,7 +97,7 @@ class ResolvedPath:
         return self.get_path().mkdir(**kwargs)
 
     def __str__(self) -> str:
-        return str(self.get_path())
+        return self.get_path_str()
 
     def __repr__(self) -> str:
         return f"ResolvedPath({self._spec.name}, {self._ctx})"
@@ -276,17 +281,21 @@ class PathResolver:
             # → {"root": "/proj", "proj": "demo", "asset": "tree", ...}
         """
         spec = self._get_kind_spec(kind)
-        path = Path(path)
 
-        return self._parse_with_template(spec, path)
+        if isinstance(path, Path):
+            path_str = path.as_posix()
+        else:
+            path_str = Path(path).as_posix()
 
-    def _parse_with_template(self, spec: KindSpec, path: Path) -> dict[str, str]:
+        return self._parse_with_template(spec, path_str)
+
+    def _parse_with_template(self, spec: KindSpec, path_str: str) -> dict[str, str]:
         """
         Parse path using template.
 
         Args:
             spec: Kind specification
-            path: Path to parse
+            path_str: Path string to parse
 
         Returns:
             Dict of extracted field values
@@ -298,12 +307,11 @@ class PathResolver:
         pattern = self._template_to_regex(spec.template, spec.fields)
 
         # Match path
-        path_str = str(path)
         match = re.fullmatch(pattern, path_str)
 
         if not match:
             raise ValidationError(
-                f"Path '{path}' doesn't match template for '{spec.name}': {spec.template}"
+                f"Path '{path_str}' doesn't match template for '{spec.name}': {spec.template}"
             )
 
         # Extract fields
@@ -391,12 +399,16 @@ class PathResolver:
             candidates = resolver.guess("/proj/demo/tree.jpg")
             # → [("asset_image", {...}), ("prop_image", {...})]
         """
-        path = Path(path)
+        if isinstance(path, Path):
+            path_str = path.as_posix()
+        else:
+            path_str = Path(path).as_posix()
+
         candidates = []
 
         for kind_name in self.store.iter_all_kinds():
             try:
-                fields = self.parse(kind_name, path)
+                fields = self.parse(kind_name, path_str)
                 candidates.append((kind_name, fields))
             except ValidationError:
                 continue
@@ -405,7 +417,7 @@ class PathResolver:
         if len(candidates) > 1 and warn:
             kind_names = [k for k, _ in candidates]
             warnings.warn(
-                f"Path '{path}' matches multiple kinds: {kind_names}\n"
+                f"Path '{path_str}' matches multiple kinds: {kind_names}\n"
                 f"This ambiguity was detected during compilation.\n"
                 f"Consider using parse(kind, path) with explicit kind.",
                 AmbiguousPathWarning

@@ -1,6 +1,7 @@
 """
 Compiled schema storage implementations.
 """
+from __future__ import annotations
 
 from .base import CompiledStore
 from .sqlite_store import SQLiteStore

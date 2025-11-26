@@ -14,8 +14,39 @@ from path_manager.exceptions import SchemaError
 
 @pytest.fixture
 def schema_file():
-    """Provide path to example schema.yml"""
+    """Provide path to example schema.yml (cross-platform)"""
     return Path(__file__).parent.parent / "examples" / "schema.yml"
+
+
+@pytest.fixture
+def schema_linux():
+    """Provide path to Linux-specific schema.yml"""
+    return Path(__file__).parent.parent / "examples" / "schema_linux.yml"
+
+
+@pytest.fixture
+def schema_windows():
+    """Provide path to Windows-specific schema.yml"""
+    return Path(__file__).parent.parent / "examples" / "schema_windows.yml"
+
+
+@pytest.fixture(params=["linux", "windows"])
+def schema_platform(request, schema_linux, schema_windows):
+    """Provide platform-specific schema and expected root regex."""
+    if request.param == "linux":
+        return {
+            "schema": schema_linux,
+            "platform": "linux",
+            "root_regex": "/[A-Za-z0-9/_-]+",
+            "root_example": "/proj"
+        }
+    else:
+        return {
+            "schema": schema_windows,
+            "platform": "windows",
+            "root_regex": "[A-Za-z]:/[A-Za-z0-9/_-]+",
+            "root_example": "C:/proj"
+        }
 
 
 @pytest.fixture
@@ -35,7 +66,7 @@ class TestSchemaCompiler:
 
         # Check fields
         assert "root" in compiler.fields
-        assert compiler.fields["root"]["regex"] == "/[A-Za-z0-9/_-]+"
+        assert compiler.fields["root"]["regex"] == "([A-Za-z]:)?/[A-Za-z0-9/_-]+"
 
         # Check directories
         assert "proj_root" in compiler.dirs
@@ -116,7 +147,7 @@ class TestSQLiteStore:
         # Test get_field
         field = store.get_field("root")
         assert field is not None
-        assert field["regex"] == "/[A-Za-z0-9/_-]+"
+        assert field["regex"] == "([A-Za-z]:)?/[A-Za-z0-9/_-]+"
 
         # Test iter_all_kinds
         kinds = list(store.iter_all_kinds())
@@ -174,7 +205,7 @@ class TestMsgPackStore:
         # Test get_field
         field = store.get_field("root")
         assert field is not None
-        assert field["regex"] == "/[A-Za-z0-9/_-]+"
+        assert field["regex"] == "([A-Za-z]:)?/[A-Za-z0-9/_-]+"
 
         # Test iter_all_kinds
         kinds = list(store.iter_all_kinds())
@@ -229,3 +260,47 @@ class TestStoreEquivalence:
 
         sqlite_store.close()
         msgpack_store.close()
+
+
+class TestPlatformSpecificSchemas:
+    """Test platform-specific schemas (Linux and Windows)."""
+
+    def test_compile_platform_schema(self, schema_platform, temp_dir):
+        """Test compilation of platform-specific schemas."""
+        compiler = SchemaCompiler(schema_platform["schema"])
+        compiler.compile()
+
+        # Check root field regex matches platform
+        assert compiler.fields["root"]["regex"] == schema_platform["root_regex"]
+
+        # Check other fields remain the same
+        assert "proj" in compiler.fields
+        assert "asset" in compiler.fields
+
+    def test_sqlite_platform_schema(self, schema_platform, temp_dir):
+        """Test SQLite store with platform-specific schemas."""
+        db_path = temp_dir / f"schema_{schema_platform['platform']}.db"
+        compile_schema(schema_platform["schema"], db_path, format="sqlite")
+
+        store = SQLiteStore(db_path)
+
+        # Test field regex
+        field = store.get_field("root")
+        assert field is not None
+        assert field["regex"] == schema_platform["root_regex"]
+
+        store.close()
+
+    def test_msgpack_platform_schema(self, schema_platform, temp_dir):
+        """Test MsgPack store with platform-specific schemas."""
+        msgpack_path = temp_dir / f"schema_{schema_platform['platform']}.msgpack"
+        compile_schema(schema_platform["schema"], msgpack_path, format="msgpack")
+
+        store = MsgPackStore(msgpack_path)
+
+        # Test field regex
+        field = store.get_field("root")
+        assert field is not None
+        assert field["regex"] == schema_platform["root_regex"]
+
+        store.close()

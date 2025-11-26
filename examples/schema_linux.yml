@@ -1,9 +1,9 @@
-# Example schema.yml
-# Defines fields, directories, filenames, and kinds
+# Linux schema.yml
+# Defines fields, directories, filenames, and kinds for Linux/Unix systems
 
 fields:
   root:
-    regex: "([A-Za-z]:)?/[A-Za-z0-9/_-]+"
+    regex: "/[A-Za-z0-9/_-]+"
     example: "/proj"
 
   proj:
