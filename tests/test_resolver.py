@@ -152,7 +152,7 @@ class TestResolvedPath:
         """Test exists() method."""
         resolved = resolver(
             "proj_root",
-            root=str(tmp_path),
+            root=tmp_path.as_posix(),
             proj="test"
         )
 

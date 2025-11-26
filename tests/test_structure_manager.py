@@ -62,7 +62,7 @@ class TestStructureManager:
         """Test creating project directory structure."""
         created = manager.create(
             "project_basic",
-            root=str(tmp_path),
+            root=tmp_path.as_posix(),
             proj="test_proj"
         )
 
@@ -93,7 +93,7 @@ class TestStructureManager:
         """Test creating asset directory structure."""
         created = manager.create(
             "asset_complete",
-            root=str(tmp_path),
+            root=tmp_path.as_posix(),
             proj="test_proj",
             asset="test_asset"
         )
@@ -118,7 +118,7 @@ class TestStructureManager:
         """Test dry run mode."""
         created = manager.create(
             "project_basic",
-            root=str(tmp_path),
+            root=tmp_path.as_posix(),
             proj="test_proj",
             dry_run=True
         )
@@ -162,7 +162,7 @@ structures:
         created = manager_cond.create(
             "conditional_test",
             context={},
-            root=str(tmp_path / "no_dev"),
+            root=(tmp_path / "no_dev").as_posix(),
             proj="test"
         )
 
@@ -178,7 +178,7 @@ structures:
         created = manager_cond.create(
             "conditional_test",
             context={"is_dev": True},
-            root=str(tmp_path / "with_dev"),
+            root=(tmp_path / "with_dev").as_posix(),
             proj="test"
         )
 

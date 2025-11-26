@@ -54,11 +54,22 @@ class ResolvedPath:
         self._path_cache: Path | None = None
 
     def get_path(self) -> Path:
-        """Get the resolved path."""
+        """
+        Get the resolved path.
+
+        Note: Returns path string in POSIX format (/) for cross-platform consistency.
+        The Path object will use native separators when used for file operations.
+        """
         if self._path_cache is None:
             s = self._spec.tmpl.substitute(self._ctx)
+            # Always use POSIX format internally for consistency
             self._path_cache = Path(s)
         return self._path_cache
+
+    def get_path_str(self) -> str:
+        """Get the resolved path as POSIX string (always uses / separator)."""
+        path = self.get_path()
+        return path.as_posix()
 
     def get_template(self) -> str:
         """Get the original template string."""
@@ -92,7 +103,8 @@ class ResolvedPath:
         return self.get_path().mkdir(**kwargs)
 
     def __str__(self) -> str:
-        return str(self.get_path())
+        """String representation uses POSIX format for consistency."""
+        return self.get_path_str()
 
     def __repr__(self) -> str:
         return f"ResolvedPath({self._spec.name}, {self._ctx})"
@@ -263,7 +275,7 @@ class PathResolver:
 
         Args:
             kind: Kind or directory name
-            path: Path to parse
+            path: Path to parse (will be converted to POSIX format)
 
         Returns:
             Dict of field values
@@ -276,17 +288,22 @@ class PathResolver:
             # → {"root": "/proj", "proj": "demo", "asset": "tree", ...}
         """
         spec = self._get_kind_spec(kind)
-        path = Path(path)
 
-        return self._parse_with_template(spec, path)
+        # Convert to POSIX format for consistent matching
+        if isinstance(path, Path):
+            path_str = path.as_posix()
+        else:
+            path_str = Path(path).as_posix()
 
-    def _parse_with_template(self, spec: KindSpec, path: Path) -> dict[str, str]:
+        return self._parse_with_template(spec, path_str)
+
+    def _parse_with_template(self, spec: KindSpec, path_str: str) -> dict[str, str]:
         """
         Parse path using template.
 
         Args:
             spec: Kind specification
-            path: Path to parse
+            path_str: Path string to parse (POSIX format)
 
         Returns:
             Dict of extracted field values
@@ -298,12 +315,11 @@ class PathResolver:
         pattern = self._template_to_regex(spec.template, spec.fields)
 
         # Match path
-        path_str = str(path)
         match = re.fullmatch(pattern, path_str)
 
         if not match:
             raise ValidationError(
-                f"Path '{path}' doesn't match template for '{spec.name}': {spec.template}"
+                f"Path '{path_str}' doesn't match template for '{spec.name}': {spec.template}"
             )
 
         # Extract fields
@@ -381,7 +397,7 @@ class PathResolver:
         Guess kind(s) from path.
 
         Args:
-            path: Path to analyze
+            path: Path to analyze (will be converted to POSIX format)
             warn: Issue warning if ambiguous (default True)
 
         Returns:
@@ -391,12 +407,17 @@ class PathResolver:
             candidates = resolver.guess("/proj/demo/tree.jpg")
             # → [("asset_image", {...}), ("prop_image", {...})]
         """
-        path = Path(path)
+        # Convert to POSIX format
+        if isinstance(path, Path):
+            path_str = path.as_posix()
+        else:
+            path_str = Path(path).as_posix()
+
         candidates = []
 
         for kind_name in self.store.iter_all_kinds():
             try:
-                fields = self.parse(kind_name, path)
+                fields = self.parse(kind_name, path_str)
                 candidates.append((kind_name, fields))
             except ValidationError:
                 continue
@@ -405,7 +426,7 @@ class PathResolver:
         if len(candidates) > 1 and warn:
             kind_names = [k for k, _ in candidates]
             warnings.warn(
-                f"Path '{path}' matches multiple kinds: {kind_names}\n"
+                f"Path '{path_str}' matches multiple kinds: {kind_names}\n"
                 f"This ambiguity was detected during compilation.\n"
                 f"Consider using parse(kind, path) with explicit kind.",
                 AmbiguousPathWarning
