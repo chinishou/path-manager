@@ -61,7 +61,7 @@ class TestPathResolverForward:
             ext="jpg"
         )
 
-        assert str(path) == "/proj/demo/asset/tree/render/jpg/tree.v003.jpg"
+        assert path.as_posix() == "/proj/demo/asset/tree/render/jpg/tree.v003.jpg"
 
     def test_resolve_directory(self, resolver):
         """Test resolving directory path."""
@@ -71,7 +71,7 @@ class TestPathResolverForward:
             proj="demo"
         )
 
-        assert str(path) == "/proj/demo"
+        assert path.as_posix() == "/proj/demo"
 
     def test_resolve_with_callable(self, resolver):
         """Test using callable syntax."""
@@ -85,7 +85,7 @@ class TestPathResolverForward:
         )
 
         assert isinstance(resolved, ResolvedPath)
-        assert str(resolved.get_path()) == "/proj/demo/asset/tree/render/jpg/tree.v003.jpg"
+        assert str(resolved) == "/proj/demo/asset/tree/render/jpg/tree.v003.jpg"
 
     def test_missing_field(self, resolver):
         """Test error when required field is missing."""
@@ -262,7 +262,7 @@ class TestContextManager:
                 root="/proj",
                 proj="demo"
             )
-            assert str(path) == "/proj/demo"
+            assert path.as_posix() == "/proj/demo"
 
         # Should be closed after context
         # (Can't test this easily without checking internal state)

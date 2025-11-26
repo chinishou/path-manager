@@ -7,7 +7,7 @@ name = "path-manager"
 version = "0.1.0"
 description = "Schema-driven dynamic path management system"
 readme = "README.MD"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "pyyaml>=6.0",
     "msgpack>=1.0.0",
