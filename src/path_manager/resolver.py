@@ -1,6 +1,7 @@
 """
 PathResolver - Dynamic path generation and parsing.
 """
+from __future__ import annotations
 
 import re
 import warnings
@@ -54,22 +55,15 @@ class ResolvedPath:
         self._path_cache: Path | None = None
 
     def get_path(self) -> Path:
-        """
-        Get the resolved path.
-
-        Note: Returns path string in POSIX format (/) for cross-platform consistency.
-        The Path object will use native separators when used for file operations.
-        """
+        """Get the resolved path."""
         if self._path_cache is None:
             s = self._spec.tmpl.substitute(self._ctx)
-            # Always use POSIX format internally for consistency
             self._path_cache = Path(s)
         return self._path_cache
 
     def get_path_str(self) -> str:
-        """Get the resolved path as POSIX string (always uses / separator)."""
-        path = self.get_path()
-        return path.as_posix()
+        """Get the resolved path as POSIX string."""
+        return self.get_path().as_posix()
 
     def get_template(self) -> str:
         """Get the original template string."""
@@ -103,7 +97,6 @@ class ResolvedPath:
         return self.get_path().mkdir(**kwargs)
 
     def __str__(self) -> str:
-        """String representation uses POSIX format for consistency."""
         return self.get_path_str()
 
     def __repr__(self) -> str:
@@ -275,7 +268,7 @@ class PathResolver:
 
         Args:
             kind: Kind or directory name
-            path: Path to parse (will be converted to POSIX format)
+            path: Path to parse
 
         Returns:
             Dict of field values
@@ -289,7 +282,6 @@ class PathResolver:
         """
         spec = self._get_kind_spec(kind)
 
-        # Convert to POSIX format for consistent matching
         if isinstance(path, Path):
             path_str = path.as_posix()
         else:
@@ -303,7 +295,7 @@ class PathResolver:
 
         Args:
             spec: Kind specification
-            path_str: Path string to parse (POSIX format)
+            path_str: Path string to parse
 
         Returns:
             Dict of extracted field values
@@ -397,7 +389,7 @@ class PathResolver:
         Guess kind(s) from path.
 
         Args:
-            path: Path to analyze (will be converted to POSIX format)
+            path: Path to analyze
             warn: Issue warning if ambiguous (default True)
 
         Returns:
@@ -407,7 +399,6 @@ class PathResolver:
             candidates = resolver.guess("/proj/demo/tree.jpg")
             # → [("asset_image", {...}), ("prop_image", {...})]
         """
-        # Convert to POSIX format
         if isinstance(path, Path):
             path_str = path.as_posix()
         else:

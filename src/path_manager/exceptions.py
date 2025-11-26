@@ -1,6 +1,7 @@
 """
 Custom exceptions for path_manager.
 """
+from __future__ import annotations
 
 
 class PathManagerError(Exception):

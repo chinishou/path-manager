@@ -7,6 +7,7 @@ Path Manager - 動態路徑管理系統
 - 反向路徑解析
 - 結構化目錄建立
 """
+from __future__ import annotations
 
 from .resolver import PathResolver, ResolvedPath
 from .structure_manager import StructureManager
