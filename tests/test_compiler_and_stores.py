@@ -35,7 +35,7 @@ class TestSchemaCompiler:
 
         # Check fields
         assert "root" in compiler.fields
-        assert compiler.fields["root"]["regex"] == "/[A-Za-z0-9/_-]+"
+        assert compiler.fields["root"]["regex"] == "([A-Za-z]:)?/[A-Za-z0-9/_-]+"
 
         # Check directories
         assert "proj_root" in compiler.dirs
@@ -116,7 +116,7 @@ class TestSQLiteStore:
         # Test get_field
         field = store.get_field("root")
         assert field is not None
-        assert field["regex"] == "/[A-Za-z0-9/_-]+"
+        assert field["regex"] == "([A-Za-z]:)?/[A-Za-z0-9/_-]+"
 
         # Test iter_all_kinds
         kinds = list(store.iter_all_kinds())
@@ -174,7 +174,7 @@ class TestMsgPackStore:
         # Test get_field
         field = store.get_field("root")
         assert field is not None
-        assert field["regex"] == "/[A-Za-z0-9/_-]+"
+        assert field["regex"] == "([A-Za-z]:)?/[A-Za-z0-9/_-]+"
 
         # Test iter_all_kinds
         kinds = list(store.iter_all_kinds())
